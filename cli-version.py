@@ -89,7 +89,10 @@ def refresh_access_token(client, refresh_token):
         # Update .env file
         dotenv_path = os.path.join(os.path.dirname(__file__), '.env')
         set_key(dotenv_path, 'NORDIGEN_ACCESS_TOKEN', new_token_data['access'])
-        set_key(dotenv_path, 'NORDIGEN_REFRESH_TOKEN', new_token_data['refresh'])
+        
+        # Only update refresh token if a new one was provided
+        if 'refresh' in new_token_data:
+            set_key(dotenv_path, 'NORDIGEN_REFRESH_TOKEN', new_token_data['refresh'])
 
         print("✅ Access Token Refreshed Successfully")
         return new_token_data
@@ -101,9 +104,8 @@ def refresh_access_token(client, refresh_token):
         print("2. Nordigen API authentication requirements may have changed")
         print("3. Network or connectivity issues")
         
-        # Attempt to generate new tokens
-        print("\n🔄 Attempting to generate new tokens...")
-        return generate_new_tokens()[1]
+        # Instead of generating new tokens here, raise the exception
+        raise
 
 def get_bank_transactions(account, start_date=None, end_date=None):
     """
@@ -443,16 +445,11 @@ def main():
     # Load environment variables
     load_dotenv()
 
-    # Retrieve all credentials
+    # Retrieve credentials
     SECRET_ID = os.getenv('NORDIGEN_SECRET_ID')
     SECRET_KEY = os.getenv('NORDIGEN_SECRET_KEY')
     ACCESS_TOKEN = os.getenv('NORDIGEN_ACCESS_TOKEN')
     REFRESH_TOKEN = os.getenv('NORDIGEN_REFRESH_TOKEN')
-
-    # First, check if we have the basic credentials
-    if not all([SECRET_ID, SECRET_KEY]):
-        print("❌ Missing SECRET_ID or SECRET_KEY. Please check your .env file.")
-        return
 
     # Initialize client
     client = NordigenClient(
@@ -462,41 +459,48 @@ def main():
 
     # Handle token management
     try:
-        if not all([ACCESS_TOKEN, REFRESH_TOKEN]):
-            print("🔑 No existing tokens found. Generating new ones...")
+        if not all([SECRET_ID, SECRET_KEY]):
+            raise ValueError("Missing SECRET_ID or SECRET_KEY")
+            
+        if not REFRESH_TOKEN:
+            print("❌ No refresh token found. Generating new tokens...")
             client, token_data = generate_new_tokens()
         else:
-            # Set the existing access token
-            client.token = ACCESS_TOKEN
             try:
-                # Try to use existing token by making a test request
-                banks = client.institution.get_institutions("IT")
-                print("✅ Existing token is valid")
-            except Exception:
-                print("🔄 Access token expired, attempting refresh...")
-                try:
-                    token_data = refresh_access_token(client, REFRESH_TOKEN)
-                except Exception:
-                    print("❌ Token refresh failed. Generating new tokens...")
-                    client, token_data = generate_new_tokens()
+                # Try to refresh the token
+                token_data = refresh_access_token(client, REFRESH_TOKEN)
+            except Exception as e:
+                print("🔄 Token refresh failed, generating new tokens...")
+                client, token_data = generate_new_tokens()
 
-        print("\n🌐 Ready to interact with Nordigen API")
-        
-        # Continue with the rest of your code...
-        banks = client.institution.get_institutions("IT")
-        print(f"\n🏦 Retrieved {len(banks)} Italian banks")
-        
-        # Let user select a bank
-        selected_bank = select_institution(banks)
-        
-        if selected_bank:
-            # Retrieve accounts for the selected bank
-            get_bank_accounts(client, selected_bank)
-        else:
-            print("Bank selection cancelled.")
-            
     except Exception as e:
-        print(f"❌ Error: {e}")
+        print(f"❌ Token management error: {e}")
+        return
+
+    print("\n🌐 Ready to interact with Nordigen API")
+    
+    while True:  # Main application loop
+        try:
+            banks = client.institution.get_institutions("IT")
+            print(f"\n🏦 Retrieved {len(banks)} Italian banks")
+            
+            # Let user select a bank
+            selected_bank = select_institution(banks)
+            
+            if selected_bank:
+                # Retrieve accounts for the selected bank
+                get_bank_accounts(client, selected_bank)
+                # After returning from get_bank_accounts, the loop will continue
+                # bringing the user back to bank selection
+            elif selected_bank is None:  # User chose to exit
+                print("\nThank you for using the Bank Account Manager!")
+                break
+                
+        except Exception as e:
+            print(f"❌ Error: {e}")
+            choice = input("\nWould you like to try again? (y/n): ").lower()
+            if choice != 'y':
+                break
 
 if __name__ == "__main__":
     main()
