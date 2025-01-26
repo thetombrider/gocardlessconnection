@@ -443,33 +443,46 @@ def main():
     # Load environment variables
     load_dotenv()
 
-    # Retrieve credentials
+    # Retrieve all credentials
     SECRET_ID = os.getenv('NORDIGEN_SECRET_ID')
     SECRET_KEY = os.getenv('NORDIGEN_SECRET_KEY')
+    ACCESS_TOKEN = os.getenv('NORDIGEN_ACCESS_TOKEN')
     REFRESH_TOKEN = os.getenv('NORDIGEN_REFRESH_TOKEN')
 
-    # Validate credentials
-    if not all([SECRET_ID, SECRET_KEY, REFRESH_TOKEN]):
-        print("❌ Incomplete credentials. Generating new tokens...")
-        client, token_data = generate_new_tokens()
-    else:
-        # Initialize client
-        client = NordigenClient(
-            secret_id=SECRET_ID,
-            secret_key=SECRET_KEY
-        )
+    # First, check if we have the basic credentials
+    if not all([SECRET_ID, SECRET_KEY]):
+        print("❌ Missing SECRET_ID or SECRET_KEY. Please check your .env file.")
+        return
 
-        # Attempt to refresh token
-        try:
-            token_data = refresh_access_token(client, REFRESH_TOKEN)
-        except Exception:
-            # Fallback to generating new tokens
-            client, token_data = generate_new_tokens()
+    # Initialize client
+    client = NordigenClient(
+        secret_id=SECRET_ID,
+        secret_key=SECRET_KEY
+    )
 
-    # Continue with your existing workflow here
-    print("\n🌐 Ready to interact with Nordigen API")
-    
+    # Handle token management
     try:
+        if not all([ACCESS_TOKEN, REFRESH_TOKEN]):
+            print("🔑 No existing tokens found. Generating new ones...")
+            client, token_data = generate_new_tokens()
+        else:
+            # Set the existing access token
+            client.token = ACCESS_TOKEN
+            try:
+                # Try to use existing token by making a test request
+                banks = client.institution.get_institutions("IT")
+                print("✅ Existing token is valid")
+            except Exception:
+                print("🔄 Access token expired, attempting refresh...")
+                try:
+                    token_data = refresh_access_token(client, REFRESH_TOKEN)
+                except Exception:
+                    print("❌ Token refresh failed. Generating new tokens...")
+                    client, token_data = generate_new_tokens()
+
+        print("\n🌐 Ready to interact with Nordigen API")
+        
+        # Continue with the rest of your code...
         banks = client.institution.get_institutions("IT")
         print(f"\n🏦 Retrieved {len(banks)} Italian banks")
         

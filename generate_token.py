@@ -7,8 +7,8 @@ def generate_initial_tokens():
     load_dotenv()
 
     # Retrieve secret credentials
-    SECRET_ID = os.getenv('SECRET_ID')
-    SECRET_KEY = os.getenv('SECRET_KEY')
+    SECRET_ID = os.getenv('NORDIGEN_SECRET_ID')
+    SECRET_KEY = os.getenv('NORDIGEN_SECRET_KEY')
 
     # Validate credentials
     if not SECRET_ID or not SECRET_KEY:
@@ -28,8 +28,8 @@ def generate_initial_tokens():
         dotenv_path = os.path.join(os.path.dirname(__file__), '.env')
 
         # Store tokens in .env file
-        set_key(dotenv_path, 'ACCESS_TOKEN', token_data['access'])
-        set_key(dotenv_path, 'REFRESH_TOKEN', token_data['refresh'])
+        set_key(dotenv_path, 'NORDIGEN_ACCESS_TOKEN', token_data['access'])
+        set_key(dotenv_path, 'NORDIGEN_REFRESH_TOKEN', token_data['refresh'])
 
         print("Initial tokens generated and stored successfully:")
         print(f"Access Token: {token_data['access'][:10]}...")
