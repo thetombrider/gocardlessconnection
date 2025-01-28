@@ -1,5 +1,5 @@
 #!/bin/sh
-'''exec' "/Users/tommy/Progetti Python/personal-finance/.venv/bin/python" "$0" "$@"
+'''exec' "/Users/tommy/Progetti Python/transaction-downloader/.venv/bin/python3.12" "$0" "$@"
 ' '''
 # -*- coding: utf-8 -*-
 import re
