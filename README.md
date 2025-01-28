@@ -1,6 +1,6 @@
-# Nordigen Bank Account Manager
+# GoCardless Bank Account Manager
 
-A command-line interface (CLI) tool for managing bank account connections and retrieving financial data using the Nordigen (GoCardless) API.
+A command-line interface (CLI) tool for managing bank account connections and retrieving financial data using the GoCardless (formerly Nordigen) Bank Account Data API.
 
 ## Features
 
@@ -15,7 +15,7 @@ A command-line interface (CLI) tool for managing bank account connections and re
 ## Prerequisites
 
 - Python 3.6 or higher
-- Nordigen API credentials (Secret ID and Secret Key)
+- GoCardless Bank Account Data API credentials (Secret ID and Secret Key)
 - Internet connection
 
 ## Installation
@@ -31,7 +31,7 @@ cd [repository-name]
 pip install -r requirements.txt
 ```
 
-3. Create a `.env` file in the project root with your Nordigen credentials:
+3. Create a `.env` file in the project root with your GoCardless credentials:
 ```plaintext
 NORDIGEN_SECRET_ID=your_secret_id
 NORDIGEN_SECRET_KEY=your_secret_key
