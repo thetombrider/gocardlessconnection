@@ -10,10 +10,10 @@ import pandas as pd
 # Load environment variables
 load_dotenv()
 
-# Initialize Nordigen client
+# Initialize GoCardless client
 client = NordigenClient(
-    secret_id=os.getenv('NORDIGEN_SECRET_ID'),
-    secret_key=os.getenv('NORDIGEN_SECRET_KEY')
+    secret_id=os.getenv('GOCARDLESS_SECRET_ID'),
+    secret_key=os.getenv('GOCARDLESS_SECRET_KEY')
 )
 
 def generate_new_tokens():
@@ -24,25 +24,25 @@ def generate_new_tokens():
     load_dotenv()
 
     # Retrieve secret credentials
-    SECRET_ID = os.getenv('NORDIGEN_SECRET_ID')
-    SECRET_KEY = os.getenv('NORDIGEN_SECRET_KEY')
+    SECRET_ID = os.getenv('GOCARDLESS_SECRET_ID')
+    SECRET_KEY = os.getenv('GOCARDLESS_SECRET_KEY')
 
     # Validate credentials
     if not SECRET_ID or not SECRET_KEY:
         raise ValueError("""
-        ❌ Missing Nordigen Credentials
+        ❌ Missing GoCardless Credentials
         Please ensure your .env file contains:
-        NORDIGEN_SECRET_ID=your_actual_secret_id
-        NORDIGEN_SECRET_KEY=your_actual_secret_key
+        GOCARDLESS_SECRET_ID=your_actual_secret_id
+        GOCARDLESS_SECRET_KEY=your_actual_secret_key
         
         How to obtain these:
-        1. Sign up at Nordigen (https://nordigen.com)
+        1. Sign up at GoCardless Bank Account Data API
         2. Navigate to API credentials section
         3. Generate new Secret ID and Secret Key
         """)
 
     try:
-        # Initialize Nordigen client
+        # Initialize GoCardless client
         client = NordigenClient(
             secret_id=SECRET_ID,
             secret_key=SECRET_KEY
@@ -59,8 +59,8 @@ def generate_new_tokens():
         dotenv_path = os.path.join(os.path.dirname(__file__), '.env')
 
         # Update .env with new tokens
-        set_key(dotenv_path, 'NORDIGEN_ACCESS_TOKEN', token_data['access'])
-        set_key(dotenv_path, 'NORDIGEN_REFRESH_TOKEN', token_data['refresh'])
+        set_key(dotenv_path, 'GOCARDLESS_ACCESS_TOKEN', token_data['access'])
+        set_key(dotenv_path, 'GOCARDLESS_REFRESH_TOKEN', token_data['refresh'])
 
         print("🔑 New Tokens Generated Successfully:")
         print(f"Access Token (first 10 chars): {token_data['access'][:10]}...")
@@ -72,12 +72,12 @@ def generate_new_tokens():
         print(f"\n❌ Token Generation Error: {e}")
         print("\nPossible Reasons:")
         print("1. Network connectivity issues")
-        print("2. Invalid Nordigen credentials")
-        print("3. Nordigen API temporary unavailability")
+        print("2. Invalid GoCardless credentials")
+        print("3. GoCardless API temporary unavailability")
         print("\nRecommended Actions:")
         print("- Check your internet connection")
-        print("- Verify your Nordigen account credentials")
-        print("- Contact Nordigen support if issue persists")
+        print("- Verify your GoCardless account credentials")
+        print("- Contact GoCardless support if issue persists")
         raise
 
 def refresh_access_token(client, refresh_token):
@@ -101,11 +101,11 @@ def refresh_access_token(client, refresh_token):
 
         # Update .env file
         dotenv_path = os.path.join(os.path.dirname(__file__), '.env')
-        set_key(dotenv_path, 'NORDIGEN_ACCESS_TOKEN', new_token_data['access'])
+        set_key(dotenv_path, 'GOCARDLESS_ACCESS_TOKEN', new_token_data['access'])
         
         # Only update refresh token if a new one was provided
         if 'refresh' in new_token_data:
-            set_key(dotenv_path, 'NORDIGEN_REFRESH_TOKEN', new_token_data['refresh'])
+            set_key(dotenv_path, 'GOCARDLESS_REFRESH_TOKEN', new_token_data['refresh'])
 
         print("✅ Access Token Refreshed Successfully")
         return new_token_data
@@ -114,7 +114,7 @@ def refresh_access_token(client, refresh_token):
         print(f"\n❌ Token Refresh Error: {e}")
         print("\nDetailed Diagnostics:")
         print("1. Current refresh token might be expired")
-        print("2. Nordigen API authentication requirements may have changed")
+        print("2. GoCardless API authentication requirements may have changed")
         print("3. Network or connectivity issues")
         
         # Instead of generating new tokens here, raise the exception
@@ -131,10 +131,10 @@ def validate_tokens():
     # Load environment variables to ensure we have the latest tokens
     load_dotenv()
     
-    refresh_token = os.getenv('NORDIGEN_REFRESH_TOKEN')
-    access_token = os.getenv('NORDIGEN_ACCESS_TOKEN')
-    secret_id = os.getenv('NORDIGEN_SECRET_ID')
-    secret_key = os.getenv('NORDIGEN_SECRET_KEY')
+    refresh_token = os.getenv('GOCARDLESS_REFRESH_TOKEN')
+    access_token = os.getenv('GOCARDLESS_ACCESS_TOKEN')
+    secret_id = os.getenv('GOCARDLESS_SECRET_ID')
+    secret_key = os.getenv('GOCARDLESS_SECRET_KEY')
 
     # Reinitialize client with secret credentials
     client = NordigenClient(

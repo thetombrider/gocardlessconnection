@@ -22,8 +22,8 @@ A command-line interface (CLI) tool for managing bank account connections and re
 
 1. Clone this repository:
 ```bash
-git clone [repository-url]
-cd [repository-name]
+git clone https://github.com/thetombrider/gocardlessconnection
+cd gocardlessconnection
 ```
 
 2. Install required dependencies:
@@ -33,8 +33,8 @@ pip install -r requirements.txt
 
 3. Create a `.env` file in the project root with your GoCardless credentials:
 ```plaintext
-NORDIGEN_SECRET_ID=your_secret_id
-NORDIGEN_SECRET_KEY=your_secret_key
+GOCARDLESS_SECRET_ID=your_secret_id
+GOCARDLESS_SECRET_KEY=your_secret_key
 ```
 
 ## Initial Setup
