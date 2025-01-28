@@ -20,8 +20,26 @@ def generate_new_tokens():
     """
     Comprehensive token generation process with detailed error handling and logging.
     """
-    # Load existing environment variables
-    load_dotenv()
+    # Try multiple locations for .env file
+    env_locations = [
+        os.path.join(os.getcwd(), '.env'),  # Current working directory
+        os.path.join(os.path.dirname(__file__), '.env'),  # Package directory
+    ]
+    
+    env_loaded = False
+    for env_path in env_locations:
+        if os.path.exists(env_path):
+            load_dotenv(env_path)
+            env_loaded = True
+            break
+    
+    if not env_loaded:
+        raise ValueError("""
+        ❌ .env file not found!
+        Please create a .env file in your current directory with:
+        GOCARDLESS_SECRET_ID=your_actual_secret_id
+        GOCARDLESS_SECRET_KEY=your_actual_secret_key
+        """)
 
     # Retrieve secret credentials
     SECRET_ID = os.getenv('GOCARDLESS_SECRET_ID')
@@ -588,19 +606,36 @@ def check_balances(bank_id):
     validate_tokens()
 
     try:
-        institution = client.institution.get_institution_by_id(bank_id)
+        # First, verify if this bank ID exists
+        try:
+            institution = client.institution.get_institution_by_id(bank_id)
+        except Exception as e:
+            print(f"\n❌ Bank ID '{bank_id}' not found.")
+            print("\nTo find the correct bank ID:")
+            print("1. Use 'gocardless-connector browse-banks' to list available banks")
+            print("2. Note the ID of your bank from the list")
+            print("3. Try again with the correct bank ID")
+            return
+
         if not institution:
             print("❌ Bank not found.")
             return
         
+        print(f"\n✅ Found bank: {institution.get('name', 'Unknown Bank')}")
         accounts_info = get_bank_accounts(client, institution)
+        
         if accounts_info:
             for account in accounts_info:
                 handle_bank_account_options(account['account_api'])
         else:
             print("❌ No accounts found for this bank.")
+            
     except Exception as e:
         print(f"❌ Error retrieving balances: {e}")
+        print("\nTroubleshooting steps:")
+        print("1. Verify your internet connection")
+        print("2. Ensure the bank ID is correct")
+        print("3. Try browsing banks first using: gocardless-connector browse-banks")
 
 @cli.command()
 @click.option('--bank-id', required=True, help='ID of the bank to check transactions for')
@@ -662,6 +697,49 @@ def download_all_transactions(output):
         
     except Exception as e:
         print(f"❌ Error downloading transactions: {e}")
+
+@cli.command()
+@click.option('--search', help='Search term to filter banks')
+@click.option('--country', help='Country code for bank institutions')
+def find_bank_id(search, country):
+    """Find bank ID by name or partial name."""
+    validate_tokens()
+    
+    if not country:
+        country = input("\nEnter country code (press Enter for IT): ").upper() or 'IT'
+    
+    try:
+        banks = client.institution.get_institutions(country)
+        
+        if not search:
+            search = input("\nEnter bank name or partial name to search: ").strip()
+        
+        if search:
+            matching_banks = [
+                bank for bank in banks 
+                if search.lower() in bank['name'].lower() 
+                and country in bank.get('countries', [])  # Add country filter
+            ]
+        else:
+            matching_banks = [
+                bank for bank in banks 
+                if country in bank.get('countries', [])  # Add country filter
+            ]
+
+        if not matching_banks:
+            print(f"❌ No banks found matching '{search}' in {country}")
+            return
+
+        print("\n🏦 Matching Banks:")
+        print("-" * 50)
+        for bank in matching_banks:
+            print(f"ID: {bank['id']}")
+            print(f"Name: {bank['name']}")
+            print(f"Country: {country}")  # Use the selected country
+            print("-" * 30)
+            
+    except Exception as e:
+        print(f"❌ Error: {e}")
 
 if __name__ == "__main__":
     cli()

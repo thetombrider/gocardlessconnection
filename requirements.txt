@@ -2,4 +2,3 @@ python-dotenv
 nordigen-python
 click
 pandas
-uuid
