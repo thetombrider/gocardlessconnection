@@ -3,6 +3,9 @@ from dotenv import load_dotenv, set_key
 from nordigen import NordigenClient
 from uuid import uuid4
 import click
+import csv
+from datetime import datetime
+import pandas as pd
 
 # Load environment variables
 load_dotenv()
@@ -121,22 +124,42 @@ def validate_tokens():
     """
     Validate the access and refresh tokens. If the access token is missing or invalid,
     generate new tokens or refresh the existing ones.
+    Returns the updated client instance.
     """
+    global client
+    
+    # Load environment variables to ensure we have the latest tokens
+    load_dotenv()
+    
     refresh_token = os.getenv('NORDIGEN_REFRESH_TOKEN')
     access_token = os.getenv('NORDIGEN_ACCESS_TOKEN')
+    secret_id = os.getenv('NORDIGEN_SECRET_ID')
+    secret_key = os.getenv('NORDIGEN_SECRET_KEY')
 
-    if not access_token:
-        print("❌ No access token found. Generating new tokens...")
-        client, token_data = generate_new_tokens()
-    else:
-        try:
-            token_data = refresh_access_token(client, refresh_token)
-        except Exception as e:
-            print("🔄 Token refresh failed, generating new tokens...")
+    # Reinitialize client with secret credentials
+    client = NordigenClient(
+        secret_id=secret_id,
+        secret_key=secret_key
+    )
+
+    try:
+        if not access_token:
+            print("❌ No access token found. Generating new tokens...")
             client, token_data = generate_new_tokens()
-
-    # Set the client token to the latest access token
-    client.token = os.getenv('NORDIGEN_ACCESS_TOKEN')
+        else:
+            try:
+                token_data = refresh_access_token(client, refresh_token)
+            except Exception as e:
+                print("🔄 Token refresh failed, generating new tokens...")
+                client, token_data = generate_new_tokens()
+        
+        # Ensure client has the latest token
+        client.token = token_data['access']
+        return client
+        
+    except Exception as e:
+        print(f"❌ Token validation error: {e}")
+        raise
 
 def get_bank_transactions(account, start_date=None, end_date=None):
     """
@@ -351,22 +374,37 @@ def display_accounts(accounts_info):
 
 def get_bank_accounts(client, institution):
     """
-    Modified to handle account selection and operations.
+    Modified to handle account selection and operations with better error handling.
     """
     try:
+        # Check for existing requisition ID for this institution
+        load_dotenv()
         stored_req_id = os.getenv(f'REQUISITION_ID_{institution["id"]}')
+        requisition = None
         
         if stored_req_id:
             print("\n🔄 Found existing authorization, attempting to reuse...")
-            requisition = client.requisition.get_requisition_by_id(
-                requisition_id=stored_req_id
-            )
-            if requisition.get('status', '') == 'LN':
-                print("✅ Successfully reused existing authorization")
-            else:
+            try:
+                requisition = client.requisition.get_requisition_by_id(
+                    requisition_id=stored_req_id
+                )
+                if requisition.get('status', '') != 'LN':
+                    print("❌ Existing authorization has expired")
+                    stored_req_id = None
+                    # Remove invalid requisition ID from .env
+                    dotenv_path = os.path.join(os.path.dirname(__file__), '.env')
+                    set_key(dotenv_path, f'REQUISITION_ID_{institution["id"]}', '')
+                else:
+                    print("✅ Successfully reused existing authorization")
+            except Exception as e:
+                print(f"❌ Error with stored authorization: {e}")
                 stored_req_id = None
+                # Remove invalid requisition ID from .env
+                dotenv_path = os.path.join(os.path.dirname(__file__), '.env')
+                set_key(dotenv_path, f'REQUISITION_ID_{institution["id"]}', '')
                 
         if not stored_req_id:
+            # Initialize new session with the bank
             init = client.initialize_session(
                 institution_id=institution['id'],
                 redirect_uri="https://gocardless.com",
@@ -387,13 +425,17 @@ def get_bank_accounts(client, institution):
                 requisition_id=init.requisition_id
             )
             
+            # Store successful requisition ID
             if requisition.get('status', '') == 'LN':
                 dotenv_path = os.path.join(os.path.dirname(__file__), '.env')
                 set_key(dotenv_path, f'REQUISITION_ID_{institution["id"]}', init.requisition_id)
-        
-        if not requisition.get('accounts', []):
+            else:
+                print("❌ Authorization failed or incomplete")
+                return None
+
+        if not requisition or not requisition.get('accounts', []):
             print("❌ No accounts found. Authorization might not be completed.")
-            return
+            return None
         
         accounts_info = []
         for account_id in requisition['accounts']:
@@ -441,6 +483,69 @@ def list_connected_banks():
     
     for bank_id, requisition_id in connected_banks.items():
         print(f"Bank ID: {bank_id.split('_')[-1]}, Requisition ID: {requisition_id}")
+
+def get_all_bank_transactions():
+    """
+    Get transactions from all connected banks automatically without user interaction.
+    """
+    transactions = []
+    connected_banks = {key: value for key, value in os.environ.items() if key.startswith('REQUISITION_ID_')}
+    
+    if not connected_banks:
+        print("❌ No connected banks found.")
+        return transactions
+
+    for bank_env_key, requisition_id in connected_banks.items():
+        try:
+            bank_id = bank_env_key.replace('REQUISITION_ID_', '')
+            institution = client.institution.get_institution_by_id(bank_id)
+            
+            if not institution:
+                print(f"❌ Bank {bank_id} not found")
+                continue
+
+            # Get accounts directly from requisition
+            try:
+                requisition = client.requisition.get_requisition_by_id(requisition_id)
+                if requisition.get('status', '') != 'LN':
+                    print(f"❌ Authorization expired for bank {institution['name']}")
+                    continue
+                
+                for account_id in requisition['accounts']:
+                    try:
+                        account = client.account_api(account_id)
+                        details = account.get_details()
+                        account_info = details.get('account', {})
+                        
+                        # Get transactions for this account
+                        transactions_data = account.get_transactions()
+                        if isinstance(transactions_data, dict) and 'transactions' in transactions_data:
+                            for trans_type, trans_list in transactions_data['transactions'].items():
+                                for transaction in trans_list:
+                                    formatted_transaction = {
+                                        'bank_name': institution['name'],
+                                        'account_iban': account_info.get('iban', 'Not available'),
+                                        'transaction_id': transaction.get('transactionId', ''),
+                                        'booking_date': transaction.get('bookingDate', ''),
+                                        'amount': transaction.get('transactionAmount', {}).get('amount', ''),
+                                        'currency': transaction.get('transactionAmount', {}).get('currency', ''),
+                                        'description': transaction.get('remittanceInformationUnstructured', '')
+                                    }
+                                    transactions.append(formatted_transaction)
+                        
+                    except Exception as e:
+                        print(f"Error processing account {account_id}: {str(e)}")
+                        continue
+                        
+            except Exception as e:
+                print(f"Error processing bank {institution['name']}: {str(e)}")
+                continue
+
+        except Exception as e:
+            print(f"Error processing bank {bank_id}: {str(e)}")
+            continue
+
+    return transactions
 
 @click.group()
 def cli():
@@ -523,6 +628,40 @@ def check_transactions(bank_id):
 def list_banks():
     """List bank IDs of banks to which the user has connected already."""
     list_connected_banks()
+
+@cli.command()
+@click.option('--output', default='transactions.csv', help='Output CSV file name')
+def download_all_transactions(output):
+    """Download all transactions from all connected banks into a CSV file."""
+    try:
+        # Get updated client with valid token
+        global client
+        client = validate_tokens()
+        
+        print("\n📥 Fetching transactions from all connected banks...")
+        transactions = get_all_bank_transactions()
+        
+        if not transactions:
+            print("❌ No transactions found.")
+            return
+        
+        # Create DataFrame and save to CSV
+        df = pd.DataFrame(transactions)
+        
+        # Add timestamp to filename
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f"{output.rsplit('.', 1)[0]}_{timestamp}.csv"
+        
+        df.to_csv(filename, index=False, encoding='utf-8')
+        
+        print(f"\n✅ Successfully saved {len(transactions)} transactions to {filename}")
+        print(f"💡 Transaction summary:")
+        print(f"Total banks: {df['bank_name'].nunique()}")
+        print(f"Total accounts: {df['account_iban'].nunique()}")
+        print(f"Date range: {df['booking_date'].min()} to {df['booking_date'].max()}")
+        
+    except Exception as e:
+        print(f"❌ Error downloading transactions: {e}")
 
 if __name__ == "__main__":
     cli()
