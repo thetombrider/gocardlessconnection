@@ -71,6 +71,3 @@ python connector.py export-transactions --bank-id BANK_ID
 ```bash
 python connector.py convert-transactions --bank-id BANK_ID
 ```
-
-
-first release 31/01/2025
