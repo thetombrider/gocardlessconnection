@@ -9,6 +9,7 @@ A command-line interface (CLI) tool for managing bank account connections and re
 - 📊 View and download transactions
 - 🔄 Automatic token management
 - 📥 Bulk transaction export to CSV
+- 📥 Bulk transaction convert to CSV
 - 🌍 Multi-country support
 - 🔐 Secure credential management
 

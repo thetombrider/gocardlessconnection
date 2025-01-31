@@ -1,8 +1,8 @@
 from setuptools import setup, find_packages
 
 setup(
-    name="bank-connector",
-    version="0.2",
+    name="fintools",
+    version="0.3",
     packages=find_packages(),
     install_requires=[
         "python-dotenv",
@@ -12,7 +12,7 @@ setup(
     ],
     entry_points={
         "console_scripts": [
-            "gocardless-connector=gocardless_connector.connector:cli",
+            "fintools=gocardless_connector.connector:cli",
         ],
     },
     author="thetombrider",
