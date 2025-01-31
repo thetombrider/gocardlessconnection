@@ -48,15 +48,27 @@ python generate_token.py
 
 ### Browse and Connect to Banks
 ```bash
-python cli-tool-version.py browse-banks --country IT
+python connector.py browse-banks --country IT
 ```
 
 ### Check Account Balances
 ```bash
-python cli-tool-version.py check-balances --bank-id BANK_ID
+python connector.py check-balances --bank-id BANK_ID
 ```
 
 ### View Transactions
 ```bash
-python cli-tool-version.py check-transactions --bank-id BANK_ID
+python connector.py check-transactions --bank-id BANK_ID
 ```
+
+### Export Transactions to CSV
+```bash
+python connector.py export-transactions --bank-id BANK_ID
+```
+
+### Convert Transactions to CSV
+```bash
+python connector.py convert-transactions --bank-id BANK_ID
+```
+
+
