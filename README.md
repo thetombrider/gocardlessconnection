@@ -73,3 +73,4 @@ python connector.py convert-transactions --bank-id BANK_ID
 ```
 
 
+first release 31/01/2025
