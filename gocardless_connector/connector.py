@@ -741,5 +741,56 @@ def find_bank_id(search, country):
     except Exception as e:
         print(f"❌ Error: {e}")
 
+@cli.command()
+@click.argument('input_file', type=click.Path(exists=True))
+@click.option('--output', default=None, help='Output CSV file name')
+def convert_transactions(input_file, output):
+    """Convert transactions CSV to Italian format."""
+    try:
+        # Read the input CSV
+        df = pd.read_csv(input_file)
+        
+        # Create new DataFrame with required schema
+        converted_df = pd.DataFrame(columns=[
+            'data', 'mese', 'descrizione', 'importo entrata', 
+            'importo uscita', 'categoria', 'conto'
+        ])
+        
+        # Convert and populate the new DataFrame
+        converted_df['data'] = pd.to_datetime(df['booking_date']).dt.date
+        converted_df['mese'] = pd.to_datetime(df['booking_date']).dt.strftime('%B')
+        converted_df['descrizione'] = df['description']
+        converted_df['conto'] = df['account_iban']
+        
+        # Initialize categoria as empty
+        converted_df['categoria'] = ''
+        
+        # Convert amount to float and split into inflow/outflow
+        amounts = pd.to_numeric(df['amount'], errors='coerce')
+        converted_df['importo entrata'] = amounts.where(amounts > 0, '')
+        converted_df['importo uscita'] = amounts.where(amounts < 0, '').abs()
+        
+        # Generate output filename if not provided
+        if output is None:
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            base_name = os.path.splitext(input_file)[0]
+            output = f"{base_name}_converted_{timestamp}.csv"
+        
+        # Save to CSV
+        converted_df.to_csv(output, index=False, encoding='utf-8')
+        
+        print(f"\n✅ Successfully converted transactions to: {output}")
+        print(f"💡 Conversion summary:")
+        print(f"Total transactions: {len(converted_df)}")
+        print(f"Date range: {converted_df['data'].min()} to {converted_df['data'].max()}")
+        print(f"Total accounts: {converted_df['conto'].nunique()}")
+        
+    except Exception as e:
+        print(f"❌ Error converting transactions: {e}")
+        print("\nTroubleshooting steps:")
+        print("1. Ensure the input file is a valid CSV")
+        print("2. Check if the input file has the expected columns")
+        print("3. Verify the file path is correct")
+
 if __name__ == "__main__":
     cli()
